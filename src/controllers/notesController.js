@@ -12,25 +12,44 @@ export const getAllNotes = async (req, res, next) => {
 
     const pageNumber = Number(page);
     const perPageNumber = Number(perPage);
+    const skip = (pageNumber - 1) * perPageNumber;
 
-    const filter = {};
+    // Создаём Mongoose query через chaining
+    const notesQuery = Note.find();
 
     if (tag) {
-      filter.tag = tag;
+      notesQuery.where('tag').equals(tag);
     }
 
     if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } },
-      ];
+      notesQuery.where({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } },
+        ],
+      });
     }
 
-    const totalNotes = await Note.countDocuments(filter);
+    // Отдельный query для подсчёта общего количества заметок
+    const countQuery = Note.find();
 
-    const notes = await Note.find(filter)
-      .skip((pageNumber - 1) * perPageNumber)
-      .limit(perPageNumber);
+    if (tag) {
+      countQuery.where('tag').equals(tag);
+    }
+
+    if (search) {
+      countQuery.where({
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } },
+        ],
+      });
+    }
+
+    const [notes, totalNotes] = await Promise.all([
+      notesQuery.skip(skip).limit(perPageNumber),
+      countQuery.countDocuments(),
+    ]);
 
     const totalPages = Math.ceil(totalNotes / perPageNumber);
 
@@ -49,6 +68,7 @@ export const getAllNotes = async (req, res, next) => {
 export const getNoteById = async (req, res, next) => {
   try {
     const { noteId } = req.params;
+
     const note = await Note.findById(noteId);
 
     if (!note) {
@@ -64,6 +84,7 @@ export const getNoteById = async (req, res, next) => {
 export const createNote = async (req, res, next) => {
   try {
     const newNote = await Note.create(req.body);
+
     res.status(201).json(newNote);
   } catch (error) {
     next(error);
@@ -73,6 +94,7 @@ export const createNote = async (req, res, next) => {
 export const deleteNote = async (req, res, next) => {
   try {
     const { noteId } = req.params;
+
     const deletedNote = await Note.findByIdAndDelete(noteId);
 
     if (!deletedNote) {
@@ -88,6 +110,7 @@ export const deleteNote = async (req, res, next) => {
 export const updateNote = async (req, res, next) => {
   try {
     const { noteId } = req.params;
+
     const updatedNote = await Note.findByIdAndUpdate(noteId, req.body, {
       returnDocument: 'after',
       runValidators: true,
