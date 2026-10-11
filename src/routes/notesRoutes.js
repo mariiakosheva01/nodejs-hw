@@ -1,5 +1,5 @@
-// src/routes/notesRoutes.js
 import { Router } from 'express';
+import { authenticate } from '../middleware/authenticate.js';
 
 import {
   getAllNotes,
@@ -8,6 +8,7 @@ import {
   updateNote,
   deleteNote,
 } from '../controllers/notesController.js';
+
 import {
   getAllNotesSchema,
   noteIdSchema,
@@ -17,7 +18,9 @@ import {
 
 const router = Router();
 
-// Описуємо всі роути для нотаток тут
+// Усі маршрути нотаток доступні лише авторизованим користувачам
+router.use(authenticate);
+
 router.get('/notes', getAllNotesSchema, getAllNotes);
 router.get('/notes/:noteId', noteIdSchema, getNoteById);
 router.post('/notes', createNoteSchema, createNote);
